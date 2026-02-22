@@ -29,8 +29,91 @@ def init_db():
                 CHECK (follower_id != followee_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS activities (
+                activity_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                activity_description TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
         conn.commit()
-        
+
+
+@app.route("/activities", methods=["POST"])
+def create_activity():
+    """Add an activity for a user. Body: { "user_id": "...", "activity_description": "..." }. activity_id is generated automatically."""
+    data = request.get_json(force=True, silent=True) or {}
+    user_id = data.get("user_id")
+    activity_description = data.get("activity_description")
+
+    if not user_id or activity_description is None:
+        return jsonify({"error": "user_id and activity_description are required"}), 400
+
+    user_id = str(user_id).strip()
+    activity_description = str(activity_description).strip()
+
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO activities (user_id, activity_description) VALUES (?, ?)",
+            (user_id, activity_description),
+        )
+        activity_id = cur.lastrowid
+        conn.commit()
+
+    return jsonify({
+        "activity_id": activity_id,
+        "user_id": user_id,
+        "activity_description": activity_description,
+        "message": "Activity created",
+    }), 201
+
+
+@app.route("/users/<user_id>/activities", methods=["GET"])
+def list_user_activities(user_id):
+    """Get all activities for a given user."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT activity_id, user_id, activity_description, created_at FROM activities WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+    return jsonify({
+        "user_id": user_id,
+        "activities": [
+            {
+                "activity_id": r["activity_id"],
+                "user_id": r["user_id"],
+                "activity_description": r["activity_description"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+    }), 200
+
+
+@app.route("/users/<user_id>/feed", methods=["GET"])
+def get_feed(user_id):
+    """Get social feed for a user: all activities from users they follow, combined and ordered by time."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT a.activity_id, a.user_id, a.activity_description, a.created_at
+            FROM activities a
+            INNER JOIN follows f ON f.followee_id = a.user_id AND f.follower_id = ?
+            ORDER BY a.created_at DESC
+        """, (user_id,)).fetchall()
+    return jsonify({
+        "user_id": user_id,
+        "feed": [
+            {
+                "activity_id": r["activity_id"],
+                "user_id": r["user_id"],
+                "activity_description": r["activity_description"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+    }), 200
+
 
 @app.route("/follows", methods=["POST"])
 def create_follow():
