@@ -26,8 +26,6 @@ Server runs at `http://127.0.0.1:8000`.
 | GET | `/users/<id>/activities` | All activities for user `<id>` |
 | GET | `/users/<id>/feed` | Social feed: activities from users that `<id>` follows |
 | POST | `/follows` | Create follow. Body: `{"follower_id": "...", "followee_id": "..."}` |
-| GET | `/follows` | List follows. Optional query: `?follower_id=`, `?followee_id=` |
-| GET | `/follows?follower_id=X&followee_id=Y` | Check if X follows Y |
 | GET | `/users/<id>/following` | List users that `<id>` follows |
 | GET | `/users/<id>/followers` | List users who follow `<id>` |
 | DELETE | `/users/<follower_id>/following/<followee_id>` | Unfollow |
@@ -80,10 +78,10 @@ sequenceDiagram
     participant API as Social microservice
 
     Other->>+API: POST /activities { user_id, activity_description }
-    API-->>-Other: 201 { activity_id, message }
+    API-->>-Other: 201 { activity_id, user_id, activity_description, message }
 
     Other->>+API: POST /follows { follower_id, followee_id }
-    API-->>-Other: 201 { message }
+    API-->>-Other: 201 { follower_id, followee_id, message }
 
     Client->>+API: GET /users/<user_id>/activities
     API-->>-Client: 200 { user_id, activities[] }
@@ -91,12 +89,21 @@ sequenceDiagram
     Client->>+API: GET /users/<user_id>/feed
     API-->>-Client: 200 { user_id, feed[] }
 
-    Client->>+API: GET /follows?follower_id=X&followee_id=Y
-    API-->>-Client: 200 { follows: true/false }
+    Client->>+API: GET /users/<user_id>/following
+    API-->>-Client: 200 { user_id, following[] }
+
+    Client->>+API: GET /users/<user_id>/followers
+    API-->>-Client: 200 { user_id, followers[] }
+
+    Client->>+API: DELETE /users/<follower_id>/following/<followee_id>
+    API-->>-Client: 200 { message }
 
     Client->>+API: POST /activity_likes { activity_id, user_id }
-    API-->>-Client: 201 { message }
+    API-->>-Client: 200 { activity_id, like_count, is_liked_by }
 
-    Client->>+API: GET /activities/<id>/likes
-    API-->>-Client: 200 { activity_id, likes[] }
+    Client->>+API: GET /activities/<activity_id>/likes
+    API-->>-Client: 200 { activity_id, like_count, likes[] }
+
+    Client->>+API: DELETE /activities/<activity_id>/likes/<user_id>
+    API-->>-Client: 200 { activity_id, like_count, is_liked_by }
 ```

@@ -156,46 +156,6 @@ def create_follow():
     }), 201
 
 
-@app.route("/follows", methods=["GET"])
-def list_follows():
-    """List follow relationships. Optional query: follower_id= or followee_id= to filter."""
-    follower_id = request.args.get("follower_id")
-    followee_id = request.args.get("followee_id")
-
-    with get_db() as conn:
-        if follower_id and followee_id:
-            row = conn.execute(
-                "SELECT follower_id, followee_id, created_at FROM follows WHERE follower_id = ? AND followee_id = ?",
-                (follower_id, followee_id),
-            ).fetchone()
-            if not row:
-                return jsonify({"follows": False}), 200
-            return jsonify({
-                "follows": True,
-                "follower_id": row["follower_id"],
-                "followee_id": row["followee_id"],
-                "created_at": row["created_at"],
-            }), 200
-
-        query = "SELECT follower_id, followee_id, created_at FROM follows WHERE 1=1"
-        params = []
-        if follower_id:
-            query += " AND follower_id = ?"
-            params.append(follower_id)
-        if followee_id:
-            query += " AND followee_id = ?"
-            params.append(followee_id)
-        query += " ORDER BY created_at DESC"
-        rows = conn.execute(query, params).fetchall()
-
-    return jsonify({
-        "follows": [
-            {"follower_id": r["follower_id"], "followee_id": r["followee_id"], "created_at": r["created_at"]}
-            for r in rows
-        ]
-    }), 200
-
-
 @app.route("/users/<follower_id>/following/<followee_id>", methods=["DELETE"])
 def delete_follow(follower_id, followee_id):
     """Remove a follow relationship (unfollow)."""
