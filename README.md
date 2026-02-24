@@ -33,40 +33,51 @@ Server runs at `http://127.0.0.1:8000`.
 | GET | `/activities/<id>/likes` | List user IDs who liked activity `<id>` |
 | DELETE | `/activities/<activity_id>/likes/<user_id>` | Remove like (unlike) |
 
-## How to programmatically REQUEST data from this microservice
+## How to programmatically REQUEST data (REST API)
 
-Data is requested from this microservice by sending HTTP GET requests to the appropriate endpoints. Example in Python:
+Example: get activities for one user.
+
+| Method | URL |
+|--------|-----|
+| GET | `http://127.0.0.1:8000/users/<user_id>/activities` |
+
+Requesting that data in Python:
 
 ```python
 import requests
 
-BASE_URL = "http://127.0.0.1:8000"
 user_id = "alice"
-
-response = requests.get(f"{BASE_URL}/users/{user_id}/activities")
-activities = response.json()
+response = requests.get(f"http://127.0.0.1:8000/users/{user_id}/activities")
 ```
 
-Use the returned JSON as needed.
+## How to programmatically RECEIVE data (JSON)
 
-## How to programmatically RECEIVE data from this microservice
+Example response from **GET /users/<user_id>/activities** (200 OK):
 
-Data is received from this microservice when other services POST new activities or follow relationships to it. Example in Python:
+```json
+{
+  "user_id": "alice",
+  "activities": [
+    {
+      "activity_id": 1,
+      "user_id": "alice",
+      "activity_description": "Performed a workout",
+      "created_at": "2025-02-23 12:00:00"
+    }
+  ]
+}
+```
+
+Receiving that JSON in Python:
 
 ```python
-import requests
+data = response.json()
 
-BASE_URL = "http://127.0.0.1:8000"
-
-response = requests.post(
-    f"{BASE_URL}/activities",
-    json={
-        "user_id": "alice",
-        "activity_description": "Performed a workout",
-    },
-    headers={"Content-Type": "application/json"},
-)
-result = response.json()
+if response.ok:
+    user_id = data["user_id"]
+    activities = data["activities"]
+else:
+    error_message = data.get("error", "Unknown error")
 ```
 
 ## UML sequence diagram
