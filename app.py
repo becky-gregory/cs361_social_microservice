@@ -37,6 +37,14 @@ def init_db():
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS likes (
+                activity_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (activity_id, user_id)
+            )
+        """)
         conn.commit()
 
 
@@ -228,6 +236,81 @@ def list_followers(user_id):
     return jsonify({
         "user_id": user_id,
         "followers": [r["follower_id"] for r in rows],
+    }), 200
+
+
+# --- Activity likes ---
+
+@app.route("/activity_likes", methods=["POST"])
+def like_activity():
+    """Record a like on an activity. Body: { "user_id": "...", "activity_id": <int> }."""
+    data = request.get_json(force=True, silent=True) or {}
+    user_id = data.get("user_id")
+    activity_id = data.get("activity_id")
+
+    if not isinstance(user_id, str) or user_id.strip() == "":
+        return jsonify({"error": "user_id is required."}), 404
+
+    if not isinstance(activity_id, int):
+        return jsonify({"error": "activity_id (integer) is required"}), 404
+
+    user_id = user_id.strip()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO likes (activity_id, user_id) VALUES (?, ?)",
+            (activity_id, user_id),
+        )
+        conn.commit()
+        count_row = conn.execute(
+            "SELECT COUNT(*) AS n FROM likes WHERE activity_id = ?",
+            (activity_id,),
+        ).fetchone()
+
+    return jsonify({
+        "activity_id": activity_id,
+        "like_count": count_row["n"],
+        "is_liked_by": True,
+    }), 200
+
+
+@app.route("/activities/<int:activity_id>/likes", methods=["GET"])
+def list_activity_likes(activity_id):
+    """Get like count and list of user_ids who liked this activity."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT user_id FROM likes WHERE activity_id = ? ORDER BY user_id",
+            (activity_id,),
+        ).fetchall()
+    likes_list = [r["user_id"] for r in rows]
+    return jsonify({
+        "activity_id": activity_id,
+        "like_count": len(likes_list),
+        "likes": likes_list,
+    }), 200
+
+
+@app.route("/activities/<int:activity_id>/likes/<user_id>", methods=["DELETE"])
+def unlike_activity(activity_id, user_id):
+    """Remove a like from an activity."""
+    user_id = str(user_id).strip()
+    if user_id == "":
+        return jsonify({"error": "user_id is required"}), 400
+
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM likes WHERE activity_id = ? AND user_id = ?",
+            (activity_id, user_id),
+        )
+        conn.commit()
+        count_row = conn.execute(
+            "SELECT COUNT(*) AS n FROM likes WHERE activity_id = ?",
+            (activity_id,),
+        ).fetchone()
+
+    return jsonify({
+        "activity_id": activity_id,
+        "like_count": count_row["n"],
+        "is_liked_by": False,
     }), 200
 
 
