@@ -215,7 +215,15 @@ def like_activity():
         return jsonify({"error": "activity_id (integer) is required"}), 404
 
     user_id = user_id.strip()
+    
     with get_db() as conn:
+        activity_row = conn.execute(
+            "SELECT activity_id FROM activities WHERE activity_id = ?",
+            (activity_id,),
+        ).fetchone()
+        if activity_row is None:
+            return jsonify({"error": "activity not found"}), 404
+        
         conn.execute(
             "INSERT OR IGNORE INTO likes (activity_id, user_id) VALUES (?, ?)",
             (activity_id, user_id),
