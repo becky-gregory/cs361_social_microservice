@@ -55,11 +55,14 @@ def create_activity():
     user_id = data.get("user_id")
     activity_description = data.get("activity_description")
 
-    if not user_id or activity_description is None:
+    if user_id is None or activity_description is None:
         return jsonify({"error": "user_id and activity_description are required"}), 400
 
     user_id = str(user_id).strip()
     activity_description = str(activity_description).strip()
+
+    if user_id == "" or activity_description == "":
+        return jsonify({"error": "user_id and activity_description are required"}), 400
 
     with get_db() as conn:
         cur = conn.execute(
